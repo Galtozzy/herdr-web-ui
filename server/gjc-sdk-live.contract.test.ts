@@ -405,6 +405,7 @@ it.skipIf(!TEST_BIN || !SUPPORTED_PLATFORM)(
       expect(nextId).toMatch(/^[a-zA-Z0-9_-]+$/);
       const nextSaved = sdkResult(agentDir, { cwd, resolveSessionId: nextId }).savedSession;
       if (isRecord(nextSaved)) {
+        if (typeof nextSaved.path !== "string") throw new Error("New SDK transcript path is not a string");
         expect(nextSaved.path).not.toBe(fixturePath);
         expect(await gjcTranscriptPath(resumedPane.paneId, cwd, home)).toBe(nextSaved.path);
       } else {
