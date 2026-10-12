@@ -81,6 +81,7 @@ between releases do not reach them. Remote-PC runtime bundles are versioned sepa
   answers or session titles. Copied output from another session can no longer select that
   session's conversation. This requires the broker-bound SDK session CLI (verified with
   GJC 0.18.9); an unavailable or ambiguous SDK identity uses Terminal instead.
+  ([#912](https://github.com/devswha/herdr-web-ui/pull/912))
 - A message another Claude Code session sends into a pane (its `peer` messages) shows in the chat as
   a folded **Message from another session: {name}** that opens its own turn, instead of being skipped so the work it
   started was appended to the answer before it.
