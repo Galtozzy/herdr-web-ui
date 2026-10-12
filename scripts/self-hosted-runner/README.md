@@ -1,6 +1,6 @@
 # Self-hosted CI runner
 
-An ephemeral Docker GitHub Actions runner for this repository's Linux CI/CD jobs. Each container registers, runs exactly one job and exits; the launcher then starts a fresh one. The image has Chromium system libraries, ffmpeg, git, curl, jq, unzip and xz-utils preinstalled and no sudo. Jobs detect it with `RUNNER_ENVIRONMENT=self-hosted`.
+An ephemeral Docker GitHub Actions runner for this repository's Linux CI/CD jobs. Each container registers, runs exactly one job and exits; the launcher then starts a fresh one. The image includes Bun, Node 22, checksum-pinned herdr, Playwright Chromium and its system libraries, ffmpeg, git, `gh`, curl, jq, unzip and xz-utils, with no sudo. Jobs detect it with `RUNNER_ENVIRONMENT=self-hosted`.
 
 ## Prerequisites
 
@@ -17,6 +17,29 @@ scripts/self-hosted-runner/run.sh --once                  # one container per sl
 ```
 
 The image `herdr-ci-runner:local` is built when missing or with `--build`. Ctrl+C stops the containers and deletes any runner of this host (`herdr-ci-<host>-*`) still registered.
+
+`--once` exits nonzero if registration-token retrieval or any container fails. Its exit status
+reports launcher/container execution, not the GitHub Actions job's conclusion.
+
+## Prepared tools and caches
+
+Self-hosted jobs verify the image's Bun version, requested Node major and herdr checksum instead
+of downloading tools. Both browser lanes use the installed project's Playwright revision to find
+Chromium under `/opt/playwright-browsers`; a missing browser fails with rebuild guidance, not a
+download fallback. Rebuild with `--build` after changing the tool pins or Playwright in `bun.lock`.
+The image's `BUN_VERSION` must match the default in `.github/actions/setup-ci/action.yml`, and
+`PLAYWRIGHT_VERSION` must match the lockfile.
+
+Bun dependencies are still installed from `bun.lock`. Their download cache lives at
+`.ci-cache/bun` inside the checkout, with separate hosted/self-hosted cache keys. Hosted browser
+caches use `.ci-cache/playwright`; self-hosted jobs skip that remote cache because the browser is
+already in the image. Workspace-relative archives avoid restoring home-directory paths from a
+different checkout depth (GitHub's workspace versus `/w`).
+
+This removes per-job tool/browser downloads, not all network traffic: checkout, dependency cache
+transfers and artifacts still use the network. Compare setup time, test time and retries separately
+on the same commit before claiming an end-to-end speedup. No persistent host cache is mounted into
+the disposable containers.
 
 ## Routing jobs to it
 

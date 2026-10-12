@@ -40,20 +40,23 @@ interface ScriptResult {
   log: string;
 }
 
-async function installChromium(): Promise<string> {
-  const cli = join(repo, "node_modules/playwright-core/cli.js");
-  if (process.env.CI && process.env.RUNNER_ENVIRONMENT !== "self-hosted") {
-    console.log("[setup] Installing Chromium system dependencies...");
-    const deps = Bun.spawnSync(["sudo", "bash", "scripts/ci-bounded-retry.sh", "300", Bun.which("bun") ?? "bun", cli, "install-deps", "chromium"], { cwd: repo, stdio: ["ignore", "inherit", "inherit"] });
-    if (deps.exitCode !== 0) throw new Error("Failed to install Chromium system dependencies");
-  } else if (process.env.CI) {
-    console.log("[setup] Self-hosted runner: Chromium system libraries come from the runner image");
+class ChromiumSetupError extends Error {
+  constructor(readonly exitCode: number) {
+    super(`Chromium setup failed with exit code ${exitCode}`);
   }
-  console.log("[setup] Installing Chromium browser...");
-  const install = Bun.spawnSync(["bun", cli, "install", "chromium"], { cwd: repo, stdio: ["ignore", "inherit", "inherit"] });
-  if (install.exitCode !== 0) throw new Error("Failed to install Chromium");
-  const path = Bun.spawnSync(["bun", "-e", 'console.log(require("playwright-core").chromium.executablePath())'], { cwd: repo });
-  return new TextDecoder().decode(path.stdout).trim();
+}
+
+function installChromium(): string {
+  const setup = Bun.spawnSync(["bash", "scripts/ci-chromium.sh"], {
+    cwd: repo,
+    stdin: "ignore",
+    stdout: "pipe",
+    stderr: "inherit",
+  });
+  if (setup.exitCode !== 0) throw new ChromiumSetupError(setup.exitCode ?? 1);
+  const path = setup.stdout.toString().replace(/\r?\n$/, "");
+  if (!path || path.includes("\n")) throw new Error("Chromium setup returned an invalid executable path");
+  return path;
 }
 
 async function buildDemo(dir: string): Promise<void> {
@@ -102,7 +105,7 @@ async function main(): Promise<void> {
 
   console.log(`Browser lane: ${scripts.length} scripts, ${workers} workers, logs in ${logDir}`);
 
-  const chromePath = process.env.CHROME_PATH ?? await installChromium();
+  const chromePath = installChromium();
   const demoBuild = mkdtempSync(join(tmpdir(), "herdr-demo-parallel-"));
   await buildDemo(demoBuild);
 
@@ -186,6 +189,6 @@ async function main(): Promise<void> {
 if (import.meta.main) {
   main().catch((error) => {
     console.error(error);
-    process.exit(1);
+    process.exit(error instanceof ChromiumSetupError ? error.exitCode : 1);
   });
 }

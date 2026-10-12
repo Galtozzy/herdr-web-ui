@@ -497,11 +497,20 @@ under `docs/`, ends in `.md` or `.txt`, is the root `LICENSE` or sits under
 `.github/ISSUE_TEMPLATE/`. Pushes, dispatches and runs called from `release.yml` or `pages.yml`
 always validate in full.
 
-The runner is an ephemeral Docker container that runs one job and exits. Its image ships the
-Chromium system libraries, ffmpeg, git, curl, jq, unzip, xz-utils and CA certificates and has no
-sudo, so jobs check `RUNNER_ENVIRONMENT=self-hosted` and skip the apt steps they need on a hosted
-runner. The Bun version is set once, in `.github/actions/setup-ci/action.yml`, the composite action
-`ci.yml`, `pages.yml` and `release.yml` set up with. Setup, routing and the security model are in
+The runner is an ephemeral Docker container that runs one job and exits. Its image ships Bun,
+Node 22, checksum-pinned herdr, Playwright Chromium and its system libraries, ffmpeg, git, the
+checksum-pinned GitHub CLI (`gh`) for deployment and release publishing, curl, jq, unzip,
+xz-utils and CA certificates, with no sudo. Self-hosted setup verifies the prepared tools and
+fails on a stale image instead of downloading replacements. Rebuild the image after changing
+its pins; its Bun pin must match `.github/actions/setup-ci/action.yml`, and its Playwright pin
+must match `bun.lock`.
+
+The composite setup action used by `ci.yml`, `pages.yml` and `release.yml` keeps Bun's dependency
+cache in `.ci-cache/bun`, with separate keys per runner environment. Hosted browsers use
+`.ci-cache/playwright`; self-hosted browsers come from the image. Neither cache restores a
+home-directory archive across different workspace depths. Tool/browser preparation no longer
+downloads on self-hosted jobs, but dependency installation, checkout and artifact transfers still
+do; measure setup, test execution and retries separately when comparing speed. Setup, routing and the security model are in
 [scripts/self-hosted-runner/README.md](../scripts/self-hosted-runner/README.md).
 
 `scripts/ci-tests.ts` discovers all `.test.ts` files under src/shared/server/scripts.

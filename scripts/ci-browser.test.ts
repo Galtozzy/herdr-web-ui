@@ -7,13 +7,21 @@ import { join } from "node:path";
 const stub = `
 bun() {
   case "$1" in
-    -e) printf '/stub/chrome\\n';;
     scripts/demo-build.ts) printf 'DEMO_DIR=%s\\n' "$HERDR_DEMO_BUILD";;
-    scripts/*) printf 'STEP=%s EVIDENCE=%s\\n' "$1" "\${UI_EVIDENCE_DIR:-}";;
+    scripts/*)
+      [ "\${CHROME_PATH:-}" = /stub/chrome ] || return 91
+      printf 'STEP=%s EVIDENCE=%s\\n' "$1" "\${UI_EVIDENCE_DIR:-}";;
   esac
   if [ "$1" = "\${FAIL_SCRIPT:-}" ]; then return 7; fi
 }
 sudo() { return 0; }
+bash() {
+  if [ "$#" -eq 1 ] && [ "$1" = scripts/ci-chromium.sh ]; then
+    printf '/stub/chrome\\n'
+  else
+    command bash "$@"
+  fi
+}
 source "$1"
 `;
 

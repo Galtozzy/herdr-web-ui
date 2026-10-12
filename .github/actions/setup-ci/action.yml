@@ -16,22 +16,44 @@ inputs:
 runs:
   using: composite
   steps:
+    # Keep cached files inside the checkout. Home-directory archives contain relative paths
+    # that cannot be restored between GitHub's workspace and the image's shorter /w path.
+    - name: Select workspace-local Bun cache
+      shell: bash
+      env:
+        BUN_CACHE_DIR: ${{ github.workspace }}/.ci-cache/bun
+      run: printf 'BUN_INSTALL_CACHE_DIR=%s\n' "$BUN_CACHE_DIR" >> "$GITHUB_ENV"
+    - name: Select workspace-local hosted browser cache
+      if: runner.environment != 'self-hosted'
+      shell: bash
+      env:
+        BROWSER_CACHE_DIR: ${{ github.workspace }}/.ci-cache/playwright
+      run: printf 'PLAYWRIGHT_BROWSERS_PATH=%s\n' "$BROWSER_CACHE_DIR" >> "$GITHUB_ENV"
+    - name: Verify prepared self-hosted tools
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      env:
+        EXPECTED_BUN_VERSION: ${{ inputs.bun-version }}
+        NEED_NODE: ${{ inputs.node }}
+        NEED_HERDR: ${{ inputs.herdr }}
+      run: bash scripts/ci-preinstalled-tools.sh
     - uses: oven-sh/setup-bun@v2
+      if: runner.environment != 'self-hosted'
       with:
         bun-version: ${{ inputs.bun-version }}
-    - if: inputs.node == 'true'
+    - if: inputs.node == 'true' && runner.environment != 'self-hosted'
       uses: actions/setup-node@v7
       with:
         node-version: '22'
     - name: Cache Bun dependencies
       uses: actions/cache@v4
       with:
-        path: ~/.bun/install/cache
-        key: bun-${{ runner.os }}-${{ runner.arch }}-${{ inputs.bun-version }}-${{ hashFiles('bun.lock') }}
+        path: .ci-cache/bun
+        key: bun-workspace-v2-${{ runner.environment }}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.bun-version }}-${{ hashFiles('bun.lock') }}
         restore-keys: |
-          bun-${{ runner.os }}-${{ runner.arch }}-${{ inputs.bun-version }}-
+          bun-workspace-v2-${{ runner.environment }}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.bun-version }}-
     - name: Install checksum-pinned herdr 0.9.3
-      if: inputs.herdr == 'true'
+      if: inputs.herdr == 'true' && runner.environment != 'self-hosted'
       shell: bash
       run: |
         mkdir -p "$RUNNER_TEMP/herdr-bin"

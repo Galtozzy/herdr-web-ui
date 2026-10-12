@@ -53,7 +53,7 @@ if [ "$BUILD" = 1 ] || ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
 fi
 
 slot_loop() {
-  local slot="$1" name token
+  local slot="$1" name token container_status
   name="${PREFIX}${slot}"
   while true; do
     if ! token="$(gh api -X POST "repos/$REPO/actions/runners/registration-token" --jq .token)"; then
@@ -64,7 +64,7 @@ slot_loop() {
     fi
     # No docker socket, no host mounts, no privileges. tini is already the entrypoint.
     # The token goes in on stdin (entrypoint.sh), so it is never in the container's environment.
-    printf '%s\n' "$token" | docker run --rm -i \
+    if printf '%s\n' "$token" | docker run --rm -i \
       --name "$name" \
       --security-opt no-new-privileges \
       --cap-drop ALL \
@@ -75,9 +75,14 @@ slot_loop() {
       -e RUNNER_URL="https://github.com/$REPO" \
       -e RUNNER_NAME="$name" \
       -e RUNNER_LABELS="$LABELS" \
-      "$IMAGE" || echo "[$name] container exited with status $?" >&2
+      "$IMAGE"; then
+      container_status=0
+    else
+      container_status=$?
+      echo "[$name] container exited with status $container_status" >&2
+    fi
     token=""
-    [ "$ONCE" = 1 ] && return 0
+    [ "$ONCE" = 1 ] && return "$container_status"
     sleep 2
   done
 }
