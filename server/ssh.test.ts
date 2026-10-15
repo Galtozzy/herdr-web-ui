@@ -102,6 +102,8 @@ describe.skipIf(process.platform === "win32")("SSH without connection sharing", 
     expect(prompts).toEqual([{ prompt: "Enter passphrase for key 'k': ", hostKey: false }]);
     expect(ssh.usedSecret).toBe(true);
     expect(calls().filter((line) => line.endsWith("sh -c 'true'")).every((line) => line.includes("BatchMode=no"))).toBe(true);
+    // a keyboard-interactive prompt is the server's text, and cmd would parse it as a command line
+    expect(calls().filter((line) => !line.includes("PreferredAuthentications=none") && !line.includes(" -G ")).every((line) => line.includes("KbdInteractiveAuthentication=no"))).toBe(true);
   });
 
   it("refuses a prompt it was not asked while connecting, without asking the user", async () => {

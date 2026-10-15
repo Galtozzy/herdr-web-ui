@@ -4,4 +4,5 @@
   in herdr. A key loaded with `ssh-add` signs without a prompt; otherwise the passphrase or
   password is asked once per connection. An unknown host's fingerprint is shown before anything
   authenticates, and a key path such as `C:\Users\you\.ssh\id_ed25519` is accepted. A host whose
-  SSH config adds its own port forwards is refused on Windows, with that reason.
+  SSH config adds its own port forwards is refused on Windows, with that reason, and a host that
+  asks for a password only through keyboard-interactive needs a key in `ssh-agent` there.

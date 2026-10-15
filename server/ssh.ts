@@ -132,9 +132,13 @@ export class SshConnection {
   /**
    * A direct-mode ssh. It always checks the host strictly; it may answer a prompt only when
    * start() kept an answer for it, and the helper then refuses any prompt it has none for.
+   * Keyboard-interactive is off: its prompt is the server's own text, and Windows' ssh hands a
+   * prompt to the `.cmd` helper on a command line that cmd parses, quoting `"` only as `\"`, so
+   * a `"` and `&` in it would run a command here before the helper sees it. Password and
+   * passphrase prompts are built by ssh itself from this PC's config.
    */
   private direct(batch: "yes" | "no" = this.answers.size ? "no" : "yes", clearForwardings = true): string[] {
-    return ["ssh", ...this.options(clearForwardings), "-o", `BatchMode=${batch}`, "-o", "StrictHostKeyChecking=yes", "-o", this.knownHostsOption()];
+    return ["ssh", ...this.options(clearForwardings), "-o", `BatchMode=${batch}`, "-o", "KbdInteractiveAuthentication=no", "-o", "StrictHostKeyChecking=yes", "-o", this.knownHostsOption()];
   }
   private askEnv(): Record<string, string | undefined> {
     return this.askHelper ? { ...process.env, SSH_ASKPASS: this.askHelper, SSH_ASKPASS_REQUIRE: "force", DISPLAY: "herdr:0", HERDR_ASKPASS_SOCKET: this.askPath, HERDR_ASKPASS_TOKEN: this.askToken } : { ...process.env };
